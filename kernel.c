@@ -2,6 +2,7 @@
 #include "console.h"
 #include "pci.h"
 #include "ac97.h"
+#include "serial.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -91,6 +92,10 @@ void console_hex32(uint32_t value)
 
 void kernel_main(void)
 {
+
+  serial_init();
+  serial_write("OS booted\n");
+  
     console_clear();
     console_write("MyOS - PCI device enumeration\n");
     console_write("-----------------------------\n\n");

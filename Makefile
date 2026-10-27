@@ -18,11 +18,14 @@ kernel.o: kernel.c console.h pci.h
 pci.o: pci.c pci.h console.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
-ac97.o: ac97.c ac97.h console.h
+serial.o: serial.c serial.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
-kernel.elf: boot.o kernel.o pci.o ac97.o linker.ld
-	$(LD) -m elf_i386 -T linker.ld -nostdlib -o $@ boot.o kernel.o pci.o ac97.o
+ac97.o: ac97.c ac97.h console.h serial.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+kernel.elf: boot.o kernel.o pci.o ac97.o serial.o linker.ld
+	$(LD) -m elf_i386 -T linker.ld -nostdlib -o $@ boot.o kernel.o pci.o ac97.o serial.o
 	@grub-file --is-x86-multiboot $@
 
 myos.iso: kernel.elf iso/boot/grub/grub.cfg

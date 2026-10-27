@@ -1,5 +1,6 @@
 #include "ac97.h"
 #include "console.h"
+#include "serial.h"
 
 #define AC97_PO_BDBAR  0x10
 #define AC97_PO_CIV    0x14
@@ -262,7 +263,68 @@ int ac97_play_test_tone(void)
 
     console_write("AC97 BDL control: ");
     console_hex16(bdl[0].control);
-    console_write("\n");    
+    console_write("\n");
+
+    serial_write("AC97 global control: ");
+    serial_hex32(io_in32(busmaster + AC97_GLOB_CNT));
+    serial_write("\n");
+
+    serial_write("AC97 global status: ");
+    serial_hex32(io_in32(busmaster + AC97_GLOB_STA));
+    serial_write("\n");
+
+    serial_write("AC97 PCM volume: ");
+    serial_hex16(io_in16(mixer + 0x18));
+    serial_write("\n");
+
+    serial_write("AC97 master volume: ");
+    serial_hex16(io_in16(mixer + 0x02));
+    serial_write("\n");
+
+    serial_write("AC97 BDL address: ");
+    serial_hex32((uint32_t)(uintptr_t)&bdl[0]);
+    serial_write("\n");
+
+    serial_write("AC97 tone address: ");
+    serial_hex32((uint32_t)(uintptr_t)&tone_buffer[0]);
+    serial_write("\n");
+
+    serial_write("AC97 BDL entry address: ");
+    serial_hex32(bdl[0].address);
+    serial_write("\n");
+
+    serial_write("AC97 BDL sample count: ");
+    serial_hex16(bdl[0].sample_count);
+    serial_write("\n");
+
+    serial_write("AC97 BDL control: ");
+    serial_hex16(bdl[0].control);
+    serial_write("\n");
+
+    serial_write("AC97 BDBAR: ");
+    serial_hex32(io_in32(busmaster + AC97_PO_BDBAR));
+    serial_write("\n");
+
+    serial_write("AC97 LVI: ");
+    serial_hex8(io_in8(busmaster + AC97_PO_LVI));
+    serial_write("\n");
+
+    serial_write("AC97 CIV: ");
+    serial_hex8(io_in8(busmaster + AC97_PO_CIV));
+    serial_write("\n");
+
+    serial_write("AC97 PICB: ");
+    serial_hex16(io_in16(busmaster + AC97_PO_PICB));
+    serial_write("\n");
+
+    serial_write("AC97 PCM-out status: ");
+    serial_hex16(io_in16(busmaster + AC97_PO_SR));
+    serial_write("\n");
+
+    serial_write("AC97 PCM-out control: ");
+    serial_hex8(io_in8(busmaster + AC97_PO_CR));
+    serial_write("\n");    
+    
 
     /* Start PCM-out. */
     io_out16(busmaster + AC97_PO_SR, 0x001C);
@@ -318,6 +380,67 @@ int ac97_play_test_tone(void)
       console_write("AC97: playback timed out, status = ");
       console_hex16(io_in16(busmaster + AC97_PO_SR));
       console_write("\n");
+
+      serial_write("AC97 global control after timeout: ");
+      serial_hex32(io_in32(busmaster + AC97_GLOB_CNT));
+      serial_write("\n");
+
+      serial_write("AC97 global status after timeout: ");
+      serial_hex32(io_in32(busmaster + AC97_GLOB_STA));
+      serial_write("\n");
+
+      serial_write("AC97 PCM volume after timeout: ");
+      serial_hex16(io_in16(mixer + 0x18));
+      serial_write("\n");
+
+      serial_write("AC97 master volume after timeout: ");
+      serial_hex16(io_in16(mixer + 0x02));
+      serial_write("\n");
+
+      serial_write("AC97 BDL address after timeout: ");
+      serial_hex32((uint32_t)(uintptr_t)&bdl[0]);
+      serial_write("\n");
+
+      serial_write("AC97 tone address after timeout: ");
+      serial_hex32((uint32_t)(uintptr_t)&tone_buffer[0]);
+      serial_write("\n");
+
+      serial_write("AC97 BDL entry address after timeout: ");
+      serial_hex32(bdl[0].address);
+      serial_write("\n");
+
+      serial_write("AC97 BDL sample count after timeout: ");
+      serial_hex16(bdl[0].sample_count);
+      serial_write("\n");
+
+      serial_write("AC97 BDL control after timeout: ");
+      serial_hex16(bdl[0].control);
+      serial_write("\n");
+
+      serial_write("AC97 BDBAR after timeout: ");
+      serial_hex32(io_in32(busmaster + AC97_PO_BDBAR));
+      serial_write("\n");
+
+      serial_write("AC97 LVI after timeout: ");
+      serial_hex8(io_in8(busmaster + AC97_PO_LVI));
+      serial_write("\n");
+
+      serial_write("AC97 CIV after timeout: ");
+      serial_hex8(io_in8(busmaster + AC97_PO_CIV));
+      serial_write("\n");
+
+      serial_write("AC97 PICB after timeout: ");
+      serial_hex16(io_in16(busmaster + AC97_PO_PICB));
+      serial_write("\n");
+
+      serial_write("AC97 PCM-out status after timeout: ");
+      serial_hex16(io_in16(busmaster + AC97_PO_SR));
+      serial_write("\n");
+
+      serial_write("AC97 PCM-out control after timeout: ");
+      serial_hex8(io_in8(busmaster + AC97_PO_CR));
+      serial_write("\n");    
+      
       return -1;
     }
 
