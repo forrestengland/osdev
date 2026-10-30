@@ -119,6 +119,7 @@ static void pci_enable_bus_mastering(void)
 
 int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
 {
+  
     mixer = mixer_base;
     busmaster = busmaster_base;
 
