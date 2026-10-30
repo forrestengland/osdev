@@ -78,26 +78,85 @@ static inline void io_out32(uint16_t port, uint32_t value)
                       : : "a"(value), "Nd"(port));
 }
 
+static uint32_t pci_read_config32(uint8_t bus,
+                                  uint8_t device,
+                                  uint8_t function,
+                                  uint8_t offset)
+{
+    uint32_t address =
+        0x80000000 |
+        ((uint32_t)bus << 16) |
+        ((uint32_t)device << 11) |
+        ((uint32_t)function << 8) |
+        (offset & 0xFC);
+
+    io_out32(0xCF8, address);
+    return io_in32(0xCFC);
+}
+
+static void pci_enable_bus_mastering(void)
+{
+    uint32_t address = 0x80000000 |
+                       (0 << 16) |
+                       (4 << 11) |
+                       (0 << 8) |
+                       0x04;
+
+    io_out32(0xCF8, address);
+
+    uint16_t command = io_in16(0xCFC);
+
+    command |= 0x0004;  // Enable bus mastering
+
+    io_out16(0xCFC, command);
+
+    io_out32(0xCF8, address);
+
+    serial_write("PCI command after enabling bus mastering: ");
+    serial_hex16(io_in16(0xCFC));
+    serial_write("\n");
+}
+
 int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
 {
     mixer = mixer_base;
     busmaster = busmaster_base;
 
-    /* Bring the AC'97 link into its operational state. */
+    pci_enable_bus_mastering();    
+
+    /* Assert AC97 cold reset. */
+    io_out32(busmaster + AC97_GLOB_CNT, 0x00);
+
+    //    for (volatile unsigned int i = 0; i < 1000000; ++i)
+    //      __asm__ volatile ("pause");
+
+    /* Release AC97 cold reset. */
     io_out32(busmaster + AC97_GLOB_CNT, 0x02);
 
+    serial_write("AC97 global control after reset: ");
+    serial_hex32(io_in32(busmaster + AC97_GLOB_CNT));
+    serial_write("\n");
+
+    /* Allow codec initialization time. */
+    //    for (volatile unsigned int i = 0; i < 100000000; ++i)
+    //      __asm__ volatile ("pause");
+
+    serial_write("AC97 global status after reset: ");
+    serial_hex32(io_in32(busmaster + AC97_GLOB_STA));
+    serial_write("\n");    
+
     /* Wait for the primary codec ready bit (bit 8). */
-    unsigned int timeout = 1000000;
+    //    unsigned int timeout = 1000000;
 
-    while (!(io_in32(busmaster + AC97_GLOB_STA) & 0x100) &&
-	   --timeout) {
-      __asm__ volatile ("pause");
-    }
+    //    while (!(io_in32(busmaster + AC97_GLOB_STA) & 0x100) &&
+    //	   --timeout) {
+    //      __asm__ volatile ("pause");
+    //    }
 
-    if (timeout == 0) {
-      console_write("AC97: codec not ready\n");
-      return -1;
-    }
+    //    if (timeout == 0) {
+    //      console_write("AC97: codec not ready\n");
+    //      return -1;
+    //    }
 
     /* Reset mixer registers to their defaults. */
     io_out16(mixer + 0x00, 0x0000);
@@ -112,7 +171,7 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
      */
     io_out8(busmaster + AC97_PO_CR, AC97_CR_RESET);
 
-    timeout = 1000000;
+    unsigned int timeout = 1000000;
     while ((io_in8(busmaster + AC97_PO_CR) & AC97_CR_RESET) &&
            --timeout) {
         __asm__ volatile ("pause");
@@ -182,6 +241,17 @@ int ac97_play_test_tone(void)
 {
     ac97_generate_tone();
 
+    uint32_t pci_command =
+      pci_read_config32(0, 4, 0, 0x04);
+
+    serial_write("PCI command/status: ");
+    serial_hex32(pci_command);
+    serial_write("\n");
+
+    serial_write("PCI bus mastering enabled: ");
+    serial_write((pci_command & 0x00000004)
+		 ? "YES\n" : "NO\n");
+
     /*
      * This simple kernel has no paging yet, so linked addresses
      * are expected to be physical addresses. Verify the assumptions
@@ -201,6 +271,14 @@ int ac97_play_test_tone(void)
     bdl[0].address = (uint32_t)tone_addr;
     bdl[0].sample_count = AC97_TONE_FRAMES * 2;
     bdl[0].control = AC97_BDL_IOC;
+
+    serial_write("BDL raw dword 0: ");
+    serial_hex32(((uint32_t *)&bdl[0])[0]);
+    serial_write("\n");
+
+    serial_write("BDL raw dword 1: ");
+    serial_hex32(((uint32_t *)&bdl[0])[1]);
+    serial_write("\n");    
 
     /* Stop PCM-out before programming its registers. */
     io_out8(busmaster + AC97_PO_CR, 0);
@@ -328,13 +406,41 @@ int ac97_play_test_tone(void)
 
     /* Start PCM-out. */
     io_out16(busmaster + AC97_PO_SR, 0x001C);
-    io_out8(busmaster + AC97_PO_CR, AC97_CR_RUN);
+    io_out8(busmaster + AC97_PO_CR, AC97_CR_RUN);    
+
+    serial_write("AC97 control immediately after RUN: ");
+    serial_hex8(io_in8(busmaster + AC97_PO_CR));
+    serial_write("\n");
+
+    serial_write("AC97 status immediately after RUN: ");
+    serial_hex16(io_in16(busmaster + AC97_PO_SR));
+    serial_write("\n");
+
+    serial_write("AC97 CIV immediately after RUN: ");
+    serial_hex8(io_in8(busmaster + AC97_PO_CIV));
+    serial_write("\n");
+
+    serial_write("AC97 PICB immediately after RUN: ");
+    serial_hex16(io_in16(busmaster + AC97_PO_PICB));
+    serial_write("\n");    
 
     console_write("AC97: tone DMA started\n");
 
     for (volatile unsigned int i = 0; i < 100000; ++i) {
       __asm__ volatile ("pause");
     }
+
+    serial_write("Delayed status: ");
+    serial_hex16(io_in16(busmaster + AC97_PO_SR));
+    serial_write("\n");
+
+    serial_write("Delayed CIV: ");
+    serial_hex8(io_in8(busmaster + AC97_PO_CIV));
+    serial_write("\n");
+
+    serial_write("Delayed PICB: ");
+    serial_hex16(io_in16(busmaster + AC97_PO_PICB));
+    serial_write("\n");    
 
     console_write("AC97 control after delay: ");
     console_hex8(io_in8(busmaster + AC97_PO_CR));
@@ -353,29 +459,49 @@ int ac97_play_test_tone(void)
      * Wait for descriptor completion or an error.
      * A half-second buffer should finish shortly after playback starts.
      */
+
     int completed = 0;
 
-    for (unsigned int timeout = 0; timeout < 100000000; ++timeout) {
-      uint16_t status = io_in16(busmaster + AC97_PO_SR);
+    for (unsigned int i = 0; i < 100000000; ++i) {
+      if ((i % 10000000) == 0) {
+        serial_write("DMA status: ");
+        serial_hex16(io_in16(busmaster + AC97_PO_SR));
 
-      /* FIFO error: playback did not proceed correctly. */
-      if (status & 0x0010) {
-        console_write("AC97: FIFO error, status = ");
-        console_hex16(status);
-        console_write("\n");
-        io_out8(busmaster + AC97_PO_CR, 0);
-        return -1;
+        serial_write(" CIV: ");
+        serial_hex8(io_in8(busmaster + AC97_PO_CIV));
+
+        serial_write(" PICB: ");
+        serial_hex16(io_in16(busmaster + AC97_PO_PICB));
+
+        serial_write(" CR: ");
+        serial_hex8(io_in8(busmaster + AC97_PO_CR));
+
+        serial_write("\n");
       }
 
-      /* Buffer completion interrupt status. */
+      uint16_t status = io_in16(busmaster + AC97_PO_SR);
+
+      if (status & 0x0010) {
+        serial_write("AC97 FIFO error\n");
+        break;
+      }
+
       if (status & 0x0008) {
         completed = 1;
+        break;
+      }
+
+      if (status & 0x0001) {
+        serial_write("AC97 DMA halted unexpectedly\n");
         break;
       }
     }
 
     io_out8(busmaster + AC97_PO_CR, 0);
 
+    serial_write(completed ? "AC97 playback completed\n"
+		 : "AC97 playback did not complete\n");
+ 
     if (!completed) {
       console_write("AC97: playback timed out, status = ");
       console_hex16(io_in16(busmaster + AC97_PO_SR));
