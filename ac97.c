@@ -122,6 +122,26 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
     mixer = mixer_base;
     busmaster = busmaster_base;
 
+    uint8_t cr_before = io_in8(busmaster + 0x1B);
+
+    serial_write("PCM CR before reset: ");
+    serial_hex8(cr_before);
+    serial_write("\n");
+
+    io_out8(busmaster + 0x1B, 0x02);
+
+    uint8_t cr_after = io_in8(busmaster + 0x1B);
+
+    serial_write("PCM CR after reset: ");
+    serial_hex8(cr_after);
+    serial_write("\n");
+
+    uint16_t sr = io_in16(busmaster + 0x16);
+
+    serial_write("PCM status: ");
+    serial_hex16(sr);
+    serial_write("\n");    
+
     pci_enable_bus_mastering();    
 
     /* Assert AC97 cold reset. */

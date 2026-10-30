@@ -4,6 +4,6 @@
 
 #include <stdint.h>
 
-void pci_scan(void);
+void pci_scan(uint16_t* mixer_base, uint16_t* busmaster_base);
 
 #endif

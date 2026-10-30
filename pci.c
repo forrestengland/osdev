@@ -110,7 +110,10 @@ static uint32_t pci_read_config(uint8_t bus,
 static void pci_print_device(
     uint8_t bus,
     uint8_t device,
-    uint8_t function)
+    uint8_t function,
+    uint16_t* mixer_base,
+    uint16_t* busmaster_base
+			     )
 {
     uint16_t vendor = pci_read16(
         bus, device, function, 0x00);
@@ -155,7 +158,7 @@ static void pci_print_device(
 
     console_putc('\n');
 
-    if (vendor == 0x8086 && id == 0x2415) {
+    if (vendor == 0x8086 && (id == 0x2415 || id == 0x2485)) {
       console_write("found audio device\n");
       console_write("Command/Status=");
       console_hex32(pci_read_config(bus, device, function, 0x04));
@@ -190,22 +193,24 @@ static void pci_print_device(
       uint32_t bar0 = pci_read_config(bus, device, function, 0x10);
       uint32_t bar1 = pci_read_config(bus, device, function, 0x14);
 
-      uint16_t mixer_base = (uint16_t)(bar0 & ~0x3u);
-      uint16_t busmaster_base = (uint16_t)(bar1 & ~0x3u);
+      //      uint16_t mixer_base = (uint16_t)(bar0 & ~0x3u);
+      //      uint16_t busmaster_base = (uint16_t)(bar1 & ~0x3u);
+      *mixer_base = (uint16_t)(bar0 & 0xFFFFFFFC);
+      *busmaster_base = (uint16_t)(bar1 & 0xFFFFFFFC);
 
       console_write("AC97 mixer base: ");
-      console_hex32(mixer_base);
+      console_hex32(*mixer_base);
       console_write("\nAC97 busmaster base: ");
-      console_hex32(busmaster_base);
+      console_hex32(*busmaster_base);
       console_write("\n");
 
       console_write("Busmaster global control: ");
-      console_hex32(inl(busmaster_base + 0x2C));
+      console_hex32(inl(*busmaster_base + 0x2C));
       console_write("\nBusmaster global status: ");
-      console_hex32(inl(busmaster_base + 0x30));
+      console_hex32(inl(*busmaster_base + 0x30));
       console_write("\n");
 
-      uint16_t pcm_out = busmaster_base + 0x10;
+      uint16_t pcm_out = *busmaster_base + 0x10;
 
       console_write("PCM Out BDBAR: ");
       console_hex32(inl(pcm_out + 0x00));
@@ -234,30 +239,33 @@ static void pci_print_device(
       //      mixer_base = 0xC000;
 
       console_write("AC97 Mixer Reset: ");
-      console_hex16(inw(mixer_base + 0x00));
+      console_hex16(inw(*mixer_base + 0x00));
       console_write("\n");
 
       console_write("AC97 Master Volume: ");
-      console_hex16(inw(mixer_base + 0x02));
+      console_hex16(inw(*mixer_base + 0x02));
       console_write("\n");
 
       console_write("AC97 Extended Audio ID: ");
-      console_hex16(inw(mixer_base + 0x28));
+      console_hex16(inw(*mixer_base + 0x28));
       console_write("\n");
 
       console_write("AC97 Powerdown Control: ");
-      console_hex16(inw(mixer_base + 0x26));
+      console_hex16(inw(*mixer_base + 0x26));
       console_write("\n");
 
-      outw(mixer_base + 0x02, 0x1010);
+      outw(*mixer_base + 0x02, 0x1010);
 
       console_write("AC97 Master Volume After Write: ");
-      console_hex16(inw(mixer_base + 0x02));
-      console_write("\n");      
+      console_hex16(inw(*mixer_base + 0x02));
+      console_write("\n");
+
+      //      uint32_t bar0 = pci_read_config(bus, device, function, 0x10);
+      //      uint32_t bar1 = pci_read_config(bus, device, function, 0x14);
     }
 }
 
-void pci_scan(void)
+void pci_scan(uint16_t* mixer_base, uint16_t* busmaster_base)
 {
     for (uint16_t bus = 0; bus < 256; bus++) {
         for (uint8_t device = 0; device < 32; device++) {
@@ -268,7 +276,7 @@ void pci_scan(void)
                 continue;
 
             pci_print_device(
-                (uint8_t)bus, device, 0);
+			     (uint8_t)bus, device, 0, mixer_base, busmaster_base);
 
             uint8_t header_type =
                 (uint8_t)(pci_read32(
@@ -281,7 +289,7 @@ void pci_scan(void)
                     pci_print_device(
                         (uint8_t)bus,
                         device,
-                        function);
+                        function, mixer_base, busmaster_base);
                 }
             }
         }

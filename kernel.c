@@ -100,11 +100,15 @@ void kernel_main(void)
     console_write("MyOS - PCI device enumeration\n");
     console_write("-----------------------------\n\n");
 
-    pci_scan();    
+    uint16_t mixer_base;
+    uint16_t busmaster_base;
+    
+    pci_scan(&mixer_base, &busmaster_base);    
 
     console_write("\nPCI scan complete.\n");
 
-    if (ac97_init(0xC000, 0xC400) != 0) {
+    //    if (ac97_init(0xC000, 0xC400) != 0) {
+    if (ac97_init(mixer_base, busmaster_base) != 0) {
       console_write("AC97 initialization failed\n");
     } else {
       ac97_play_test_tone();
