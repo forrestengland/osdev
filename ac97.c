@@ -199,6 +199,44 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
     serial_write("Codec ready: ");
     serial_write(ready ? "YES\n" : "NO\n");
 
+    serial_write("Codec reset register: ");
+    serial_hex16(io_in16(mixer + 0x00));
+    serial_write("\n");
+
+    serial_write("Codec vendor ID 1: ");
+    serial_hex16(io_in16(mixer + 0x7C));
+    serial_write("\n");
+
+    serial_write("Codec vendor ID 2: ");
+    serial_hex16(io_in16(mixer + 0x7E));
+    serial_write("\n");
+
+    serial_write("Codec master capabilities: ");
+    serial_hex16(io_in16(mixer + 0x02));
+    serial_write("\n");
+
+    serial_write("Codec PCM volume: ");
+    serial_hex16(io_in16(mixer + 0x18));
+    serial_write("\n");
+
+    // Maximum master volume, unmuted.
+    io_out16(mixer + 0x02, 0x0000);
+
+    // Maximum PCM volume, unmuted.
+    io_out16(mixer + 0x18, 0x0000);
+
+    for (volatile unsigned int i = 0; i < 10000; i++) {
+      __asm__ volatile ("pause");
+    }
+
+    serial_write("Master volume readback: ");
+    serial_hex16(io_in16(mixer + 0x02));
+    serial_write("\n");
+
+    serial_write("PCM volume readback: ");
+    serial_hex16(io_in16(mixer + 0x18));
+    serial_write("\n");    
+
     // Master volume: maximum, unmuted.
     io_out16(mixer + 0x02, 0x0000);
 
@@ -240,11 +278,11 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
     //    }
 
     /* Reset mixer registers to their defaults. */
-    io_out16(mixer + 0x00, 0x0000);
+    //    io_out16(mixer + 0x00, 0x0000);
 
     /* Set master and PCM output volume; clear mute on both. */
-    io_out16(mixer + 0x02, 0x1010);
-    io_out16(mixer + 0x18, 0x1010);    
+    //    io_out16(mixer + 0x02, 0x1010);
+    //    io_out16(mixer + 0x18, 0x1010);    
 
     /*
      * Reset the PCM-out bus-master engine.
@@ -264,7 +302,7 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
     }
 
     /* Set moderate stereo volume and clear mute. */
-    io_out16(mixer + 0x02, 0x1010);
+    //    io_out16(mixer + 0x02, 0x1010);
 
     console_write("AC97: mixer volume = ");
     console_hex16(io_in16(mixer + 0x02));
@@ -335,7 +373,7 @@ int ac97_play_test_tone(void)
     ac97_generate_tone();
 
     uint32_t pci_command =
-      pci_read_config32(0, 4, 0, 0x04);
+      pci_read_config32(0, 31, 5, 0x04);
 
     serial_write("PCI command/status: ");
     serial_hex32(pci_command);
