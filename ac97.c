@@ -199,6 +199,21 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
     serial_write("Codec ready: ");
     serial_write(ready ? "YES\n" : "NO\n");
 
+    // Master volume: maximum, unmuted.
+    io_out16(mixer + 0x02, 0x0000);
+
+    // PCM output volume: maximum, unmuted.
+    io_out16(mixer + 0x18, 0x0000);
+
+    // Read back both registers.
+    serial_write("Master volume after write: ");
+    serial_hex16(io_in16(mixer + 0x02));
+    serial_write("\n");
+
+    serial_write("PCM volume after write: ");
+    serial_hex16(io_in16(mixer + 0x18));
+    serial_write("\n");    
+
     serial_write("AC97 global control after reset: ");
     serial_hex32(io_in32(busmaster + AC97_GLOB_CNT));
     serial_write("\n");
@@ -280,7 +295,7 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
     console_write("\n");
 
     // set master and pcm volume to max
-    io_out16(mixer + 0x02, 0x0000);
+    /*    io_out16(mixer + 0x02, 0x0000);
     io_out16(mixer + 0x18, 0x0000);
     
     serial_write("master volume: ");    
@@ -289,7 +304,7 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
 
     serial_write("pcm volume: ");    
     serial_hex16(io_in16(mixer + 0x18));
-    serial_write("\n");    
+    serial_write("\n"); */
 
     return 0;
 }
