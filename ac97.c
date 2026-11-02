@@ -97,6 +97,27 @@ static uint32_t pci_read_config32(uint8_t bus,
     return io_in32(0xCFC);
 }
 
+static void ac97_test_mixer_register(uint8_t reg, uint16_t value)
+{
+    uint16_t before = io_in16(mixer + reg);
+
+    io_out16(mixer + reg, value);
+
+    for (volatile int i = 0; i < 10000; i++) {
+        __asm__ volatile("nop");
+    }
+
+    uint16_t after = io_in16(mixer + reg);
+
+    serial_write("Mixer reg ");
+    serial_hex8(reg);
+    serial_write(" before: ");
+    serial_hex16(before);
+    serial_write(" after: ");
+    serial_hex16(after);
+    serial_write("\n");
+}
+
 static void pci_enable_bus_mastering(void)
 {
     uint32_t address = 0x80000000 |
@@ -198,6 +219,13 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
 
     serial_write("Codec ready: ");
     serial_write(ready ? "YES\n" : "NO\n");
+
+    ac97_test_mixer_register(0x02, 0x0000); // Master volume
+    ac97_test_mixer_register(0x04, 0x0000); // Headphone volume
+    ac97_test_mixer_register(0x18, 0x0000); // PCM output volume
+
+    ac97_test_mixer_register(0x02, 0x8000); // Master mute test
+    ac97_test_mixer_register(0x02, 0x0000); // Master unmute test    
 
     serial_write("Codec reset register: ");
     serial_hex16(io_in16(mixer + 0x00));
