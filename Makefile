@@ -34,8 +34,7 @@ myos.iso: kernel.elf iso/boot/grub/grub.cfg
 	grub-mkrescue -o $@ iso
 
 run: myos.iso
-	qemu-system-i386 -cdrom myos.iso -device AC97 -serial stdio
-
+	./run.sh
 clean:
 	rm -f boot.o kernel.o kernel.elf myos.iso ac97.iso
 	rm -f iso/boot/kernel.elf
