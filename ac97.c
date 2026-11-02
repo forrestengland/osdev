@@ -2,6 +2,9 @@
 #include "console.h"
 #include "serial.h"
 
+#define PCI_CONFIG_ADDRESS 0xCF8
+#define PCI_CONFIG_DATA    0xCFC
+
 #define AC97_PO_BDBAR  0x10
 #define AC97_PO_CIV    0x14
 #define AC97_PO_LVI    0x15
@@ -112,9 +115,36 @@ static void pci_enable_bus_mastering(void)
 
     io_out32(0xCF8, address);
 
-    serial_write("PCI command after enabling bus mastering: ");
-    serial_hex16(io_in16(0xCFC));
+    //    serial_write("PCI command after enabling bus mastering: ");
+    //    serial_hex16(io_in16(0xCFC));
+    //    serial_write("\n");
+
+    address =
+      (1U << 31) |  // Enable
+      (0 << 16)  |  // Bus 0
+      (31 << 11) |  // Device 31
+      (5 << 8)   |  // Function 5
+      0x04;         // Command/status register
+
+    io_out32(PCI_CONFIG_ADDRESS, address);
+
+    command = io_in16(PCI_CONFIG_DATA);
+
+    serial_write("PCI command before enabling bus mastering: ");
+    serial_hex16(command);
     serial_write("\n");
+
+    // Enable bus mastering (bit 2).
+    command |= (1 << 2);
+
+    io_out32(PCI_CONFIG_ADDRESS, address);
+    io_out16(PCI_CONFIG_DATA, command);
+
+    io_out32(PCI_CONFIG_ADDRESS, address);
+
+    serial_write("PCI command after enabling bus mastering: ");
+    serial_hex16(io_in16(PCI_CONFIG_DATA));
+    serial_write("\n");    
 }
 
 int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
@@ -148,11 +178,26 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
     /* Assert AC97 cold reset. */
     io_out32(busmaster + AC97_GLOB_CNT, 0x00);
 
-    //    for (volatile unsigned int i = 0; i < 1000000; ++i)
-    //      __asm__ volatile ("pause");
+    for (volatile unsigned int i = 0; i < 1000000; ++i)
+      __asm__ volatile ("pause");
 
     /* Release AC97 cold reset. */
     io_out32(busmaster + AC97_GLOB_CNT, 0x02);
+
+    // Wait for primary codec ready.
+    int ready = 0;
+
+    for (int i = 0; i < 1000000; i++) {
+      uint32_t status = io_in32(busmaster + AC97_GLOB_STA);
+
+      if (status & (1 << 8)) {
+        ready = 1;
+        break;
+      }
+    }
+
+    serial_write("Codec ready: ");
+    serial_write(ready ? "YES\n" : "NO\n");
 
     serial_write("AC97 global control after reset: ");
     serial_hex32(io_in32(busmaster + AC97_GLOB_CNT));
@@ -238,9 +283,13 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
     io_out16(mixer + 0x02, 0x0000);
     io_out16(mixer + 0x18, 0x0000);
     
-    //    serial_write("Codec power state: ");    
-    //    serial_hex16(io_in16(mixer + 0x02));
-    //    serial_write("\n");    
+    serial_write("master volume: ");    
+    serial_hex16(io_in16(mixer + 0x02));
+    serial_write("\n");    
+
+    serial_write("pcm volume: ");    
+    serial_hex16(io_in16(mixer + 0x18));
+    serial_write("\n");    
 
     return 0;
 }
