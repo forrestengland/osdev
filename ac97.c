@@ -232,7 +232,15 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
 
     console_write("AC97 master volume: ");
     console_hex16(io_in16(mixer + 0x02));
-    console_write("\n");    
+    console_write("\n");
+
+    // set master and pcm volume to max
+    io_out16(mixer + 0x02, 0x0000);
+    io_out16(mixer + 0x18, 0x0000);
+    
+    //    serial_write("Codec power state: ");    
+    //    serial_hex16(io_in16(mixer + 0x02));
+    //    serial_write("\n");    
 
     return 0;
 }
