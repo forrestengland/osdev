@@ -219,6 +219,15 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
     serial_write("Codec ready: ");
     serial_write(ready ? "YES\n" : "NO\n");
 
+    // Master volume: maximum, unmuted.
+    io_out16(mixer + 0x02, 0x0000);
+
+    // PCM output volume: maximum, unmuted.
+    io_out16(mixer + 0x18, 0x0000);
+
+    // Unmute headphone output, maximum volume.
+    io_out16(mixer + 0x04, 0x0000);    
+
     ac97_test_mixer_register(0x02, 0x0000); // Master volume
     ac97_test_mixer_register(0x04, 0x0000); // Headphone volume
     ac97_test_mixer_register(0x18, 0x0000); // PCM output volume
