@@ -1,5 +1,8 @@
 #include "audio.h"
 
+//#define AC97_BUFFER_COUNT 4
+//#define AC97_BUFFER_FRAMES 256
+
 #define AC97_BUFFER_SAMPLES			\
     (AC97_BUFFER_FRAMES * AUDIO_CHANNELS)
 
@@ -16,9 +19,10 @@ static uint32_t phase_increment;
 static float frequency = 440.0f;
 static float amplitude = 0.25f;
 
-void audio_init(void) {
+//static int16_t audio_buffers[AC97_BUFFER_COUNT][AC97_BUFFER_SAMPLES] __attribute__((aligned(16)));
 
-  // Generate sine wavetable using a rotation recurrence.
+void audio_init(void) {
+    // Generate sine wavetable using a rotation recurrence.
     const float sin_step = 0.00613592315f;
     const float cos_step = 0.99998117528f;
 
