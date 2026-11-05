@@ -6,8 +6,6 @@
 static uint16_t mixer;
 static uint16_t busmaster;
 
-#define AC97_SAMPLE_RATE  48000
-
 #define AC97_BDL_IOC      0x8000
 
 #define AC97_BUFFER_COUNT  32
@@ -65,43 +63,6 @@ void io_out16(uint16_t port, uint16_t value) {
 void io_out32(uint16_t port, uint32_t value) {
     __asm__ volatile ("outl %0, %1"
                       : : "a"(value), "Nd"(port));
-}
-
-static uint32_t pci_read_config32(uint8_t bus,
-                                  uint8_t device,
-                                  uint8_t function,
-                                  uint8_t offset)
-{
-    uint32_t address =
-        0x80000000 |
-        ((uint32_t)bus << 16) |
-        ((uint32_t)device << 11) |
-        ((uint32_t)function << 8) |
-        (offset & 0xFC);
-
-    io_out32(0xCF8, address);
-    return io_in32(0xCFC);
-}
-
-static void ac97_test_mixer_register(uint8_t reg, uint16_t value)
-{
-    uint16_t before = io_in16(mixer + reg);
-
-    io_out16(mixer + reg, value);
-
-    for (volatile int i = 0; i < 10000; i++) {
-        __asm__ volatile("nop");
-    }
-
-    uint16_t after = io_in16(mixer + reg);
-
-    serial_write("Mixer reg ");
-    serial_hex8(reg);
-    serial_write(" before: ");
-    serial_hex16(before);
-    serial_write(" after: ");
-    serial_hex16(after);
-    serial_write("\n");
 }
 
 static void pci_enable_bus_mastering(void)
@@ -176,14 +137,10 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
 
   serial_write("Codec ready: ");
   serial_write(ready ? "YES\n" : "NO\n");
-
-  // Headphone volume set
-  io_out16(mixer + 0x04, 0x1010);
-
-  // PCM volume set
-  io_out16(mixer + 0x18, 0x1010);
-
-  io_out16(mixer + 0x02, 0x1010);
+  if (!ready) {
+    console_write("ac97: codec not ready\n");
+    return -1;
+  }
 
   // Power up the codec analog sections.
   io_out16(mixer + 0x26, 0x0000);
@@ -192,6 +149,13 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
   for (volatile unsigned int i = 0; i < 1000000; i++) {
     __asm__ volatile ("pause");
   }
+
+  // Headphone volume set
+  io_out16(mixer + 0x04, 0x1010);
+  // PCM volume set
+  io_out16(mixer + 0x18, 0x1010);
+  // master volume set
+  io_out16(mixer + 0x02, 0x1010);
 
   io_out8(busmaster + AC97_PO_CR, AC97_CR_RESET);
 
