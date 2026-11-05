@@ -219,29 +219,29 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
     serial_write("Codec ready: ");
     serial_write(ready ? "YES\n" : "NO\n");
 
-uint16_t original = io_in16(mixer + 0x02);
+    uint16_t original = io_in16(mixer + 0x02);
 
-serial_write("Master original: ");
-serial_hex16(original);
-serial_write("\n");
+    serial_write("Master original: ");
+    serial_hex16(original);
+    serial_write("\n");
 
-io_out16(mixer + 0x02, 0x1F1F);
+    io_out16(mixer + 0x02, 0x1F1F);
 
-for (volatile unsigned int i = 0; i < 100000; i++)
-    __asm__ volatile ("pause");
+    for (volatile unsigned int i = 0; i < 100000; i++)
+      __asm__ volatile ("pause");
 
-serial_write("Master test 1F1F: ");
-serial_hex16(io_in16(mixer + 0x02));
-serial_write("\n");
+    serial_write("Master test 1F1F: ");
+    serial_hex16(io_in16(mixer + 0x02));
+    serial_write("\n");
 
-io_out16(mixer + 0x02, 0x0000);
+    io_out16(mixer + 0x02, 0x0000);
 
-for (volatile unsigned int i = 0; i < 100000; i++)
-    __asm__ volatile ("pause");
+    for (volatile unsigned int i = 0; i < 100000; i++)
+      __asm__ volatile ("pause");
 
-serial_write("Master test 0000: ");
-serial_hex16(io_in16(mixer + 0x02));
-serial_write("\n");    
+    serial_write("Master test 0000: ");
+    serial_hex16(io_in16(mixer + 0x02));
+    serial_write("\n");    
 
     // Power up the codec analog sections.
     io_out16(mixer + 0x26, 0x0000);
@@ -485,6 +485,17 @@ int ac97_start(void)
     // All descriptors are initially valid.
     io_out8(busmaster + AC97_PO_LVI,
             AC97_BUFFER_COUNT - 1);
+
+    io_out16(mixer + 0x02, 0x0000); // Master volume, unmuted
+    io_out16(mixer + 0x04, 0x0000); // Headphone volume, unmuted
+    io_out16(mixer + 0x18, 0x0000); // PCM volume, unmuted
+
+    serial_printf("Master after final setup: %04X\n",
+		  io_in16(mixer + 0x02));
+    serial_printf("Headphone after final setup: %04X\n",
+		  io_in16(mixer + 0x04));
+    serial_printf("PCM after final setup: %04X\n",
+		  io_in16(mixer + 0x18));    
 
     // Start PCM-out.
     io_out8(busmaster + AC97_PO_CR, AC97_CR_RUN);
