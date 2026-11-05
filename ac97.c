@@ -163,15 +163,6 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
   mixer = mixer_base;
   busmaster = busmaster_base;
 
-  // init dma buffers for audio generation
-  /*  for (int i=0; i<AC97_BUFFER_COUNT; i++) {
-    bdl[i].address = (uint32_t)audio_buffers[i];
-    bdl[i].sample_count = AC97_BUFFER_SAMPLES;
-    bdl[i].control = 0x8000;  // Interrupt on completion
-    generate_audio(audio_buffers[i], AC97_BUFFER_FRAMES);
-  }
-  io_out8(busmaster_base + 0x15, AC97_BUFFER_COUNT - 1); */
-
   // start audio
     uint8_t cr_before = io_in8(busmaster + 0x1B);
 
@@ -224,7 +215,7 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
     serial_write("Headphone test 1F1F: ");
     serial_hex16(io_in16(mixer + 0x04));
 
-    io_out16(mixer + 0x04, 0x0000);
+    io_out16(mixer + 0x04, 0x1010);
     serial_write(", Headphone test 0000: ");
     serial_hex16(io_in16(mixer + 0x04));
 
@@ -233,7 +224,7 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
     serial_write(", PCM test 1F1F:");
     serial_hex16(io_in16(mixer + 0x18));
 
-    io_out16(mixer + 0x18, 0x0000);
+    io_out16(mixer + 0x18, 0x1010);
     serial_write(", PCM test 0000: ");
     serial_hex16(io_in16(mixer + 0x18));    
 
