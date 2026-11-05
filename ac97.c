@@ -228,12 +228,12 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
     // Unmute headphone output, maximum volume.
     io_out16(mixer + 0x04, 0x0000);    
 
-    ac97_test_mixer_register(0x02, 0x0000); // Master volume
-    ac97_test_mixer_register(0x04, 0x0000); // Headphone volume
-    ac97_test_mixer_register(0x18, 0x0000); // PCM output volume
+    //    ac97_test_mixer_register(0x02, 0x0000); // Master volume
+    //    ac97_test_mixer_register(0x04, 0x0000); // Headphone volume
+    //    ac97_test_mixer_register(0x18, 0x0000); // PCM output volume
 
-    ac97_test_mixer_register(0x02, 0x8000); // Master mute test
-    ac97_test_mixer_register(0x02, 0x0000); // Master unmute test    
+    //    ac97_test_mixer_register(0x02, 0x8000); // Master mute test
+    //    ac97_test_mixer_register(0x02, 0x0000); // Master unmute test    
 
     serial_write("Codec reset register: ");
     serial_hex16(io_in16(mixer + 0x00));
@@ -256,10 +256,10 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
     serial_write("\n");
 
     // Maximum master volume, unmuted.
-    io_out16(mixer + 0x02, 0x0000);
+    //    io_out16(mixer + 0x02, 0x0000);
 
     // Maximum PCM volume, unmuted.
-    io_out16(mixer + 0x18, 0x0000);
+    //    io_out16(mixer + 0x18, 0x0000);
 
     for (volatile unsigned int i = 0; i < 10000; i++) {
       __asm__ volatile ("pause");
@@ -274,10 +274,10 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
     serial_write("\n");    
 
     // Master volume: maximum, unmuted.
-    io_out16(mixer + 0x02, 0x0000);
+    //    io_out16(mixer + 0x02, 0x0000);
 
     // PCM output volume: maximum, unmuted.
-    io_out16(mixer + 0x18, 0x0000);
+    //    io_out16(mixer + 0x18, 0x0000);
 
     // Read back both registers.
     serial_write("Master volume after write: ");
@@ -336,6 +336,36 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
         console_write("AC97: PCM-out reset timed out\n");
         return -1;
     }
+
+    serial_write("Codec power management: ");
+    serial_hex16(io_in16(mixer + 0x26));
+    serial_write("\n");
+
+    // Configure AD1981B output levels.
+    io_out16(mixer + 0x02, 0x0000);  // Master volume
+    io_out16(mixer + 0x04, 0x0000);  // Headphone volume
+    io_out16(mixer + 0x18, 0x0000);  // PCM volume
+
+    // Allow codec time to process writes.
+    for (volatile unsigned int i = 0; i < 100000; i++) {
+      __asm__ volatile ("pause");
+    }
+
+    uint16_t master = io_in16(mixer + 0x02);
+    uint16_t headphone = io_in16(mixer + 0x04);
+    uint16_t pcm = io_in16(mixer + 0x18);
+
+    serial_write("Final master volume: ");
+    serial_hex16(master);
+    serial_write("\n");
+
+    serial_write("Final headphone volume: ");
+    serial_hex16(headphone);
+    serial_write("\n");
+
+    serial_write("Final PCM volume: ");
+    serial_hex16(pcm);
+    serial_write("\n");    
 
     /* Set moderate stereo volume and clear mute. */
     //    io_out16(mixer + 0x02, 0x1010);
