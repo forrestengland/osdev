@@ -490,12 +490,12 @@ int ac97_start(void)
     io_out16(mixer + 0x04, 0x0000); // Headphone volume, unmuted
     io_out16(mixer + 0x18, 0x0000); // PCM volume, unmuted
 
-    serial_printf("Master after final setup: %04X\n",
-		  io_in16(mixer + 0x02));
-    serial_printf("Headphone after final setup: %04X\n",
-		  io_in16(mixer + 0x04));
-    serial_printf("PCM after final setup: %04X\n",
-		  io_in16(mixer + 0x18));    
+    serial_write("Master after final setup: ");
+    serial_hex16(io_in16(mixer + 0x02));
+    serial_write(", Headphone after final setup: ");
+    serial_hex16(io_in16(mixer + 0x04));
+    serial_write(", PCM after final setup: ");
+    serial_hex16(io_in16(mixer + 0x18));
 
     // Start PCM-out.
     io_out8(busmaster + AC97_PO_CR, AC97_CR_RUN);
