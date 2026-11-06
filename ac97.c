@@ -112,56 +112,38 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
   busmaster = busmaster_base;
 
   // start audio
-  /*    uint8_t cr_before = io_in8(busmaster + 0x1B); */
+  io_out8(busmaster + 0x1B, 0x02);
 
-    /*    serial_write("PCM CR before reset: ");
-    serial_hex8(cr_before);
-    serial_write("\n"); */
+  pci_enable_bus_mastering();    
 
-    io_out8(busmaster + 0x1B, 0x02);
+  // Assert AC97 cold reset.
+  io_out32(busmaster + AC97_GLOB_CNT, 0x00);
 
-    /*    uint8_t cr_after = io_in8(busmaster + 0x1B);
+  for (volatile unsigned int i = 0; i < 1000000; ++i)
+    __asm__ volatile ("pause");
 
-    serial_write("PCM CR after reset: ");
-    serial_hex8(cr_after);
-    serial_write("\n");
+  // Release AC97 cold reset.
+  io_out32(busmaster + AC97_GLOB_CNT, 0x02);
 
-    uint16_t sr = io_in16(busmaster + 0x16);
+  // Wait for primary codec ready.
+  int ready = 0;
 
-    serial_write("PCM status: ");
-    serial_hex16(sr);
-    serial_write("\n");    */
+  for (int i = 0; i < 1000000; i++) {
+    uint32_t status = io_in32(busmaster + AC97_GLOB_STA);
 
-    pci_enable_bus_mastering();    
-
-    /* Assert AC97 cold reset. */
-    io_out32(busmaster + AC97_GLOB_CNT, 0x00);
-
-    for (volatile unsigned int i = 0; i < 1000000; ++i)
-      __asm__ volatile ("pause");
-
-    /* Release AC97 cold reset. */
-    io_out32(busmaster + AC97_GLOB_CNT, 0x02);
-
-    // Wait for primary codec ready.
-    int ready = 0;
-
-    for (int i = 0; i < 1000000; i++) {
-      uint32_t status = io_in32(busmaster + AC97_GLOB_STA);
-
-      if (status & (1 << 8)) {
-        ready = 1;
-        break;
-      }
+    if (status & (1 << 8)) {
+      ready = 1;
+      break;
     }
+  }
 
-    serial_write("Codec ready: ");
-    serial_write(ready ? "YES\n" : "NO\n");
+  serial_write("Codec ready: ");
+  serial_write(ready ? "YES\n" : "NO\n");
 
-    // Headphone register test
+  // Headphone register test
     io_out16(mixer + 0x04, 0x1F1F);
     serial_write("Headphone test 1F1F: ");
-    serial_hex16(io_in16(mixer + 0x04));
+	  serial_hex16(io_in16(mixer + 0x04));
 
     io_out16(mixer + 0x04, 0x1010);
     serial_write(", Headphone test 0000: ");
@@ -174,7 +156,7 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
 
     io_out16(mixer + 0x18, 0x1010);
     serial_write(", PCM test 0000: ");
-    serial_hex16(io_in16(mixer + 0x18));    
+    serial_hex16(io_in16(mixer + 0x18));
 
     uint16_t original = io_in16(mixer + 0x02);
 
