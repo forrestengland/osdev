@@ -96,9 +96,9 @@ static void pci_enable_bus_mastering(void)
 
     command = io_in16(PCI_CONFIG_DATA);
 
-    serial_write("PCI command before enabling bus mastering: ");
+    /*    serial_write("PCI command before enabling bus mastering: ");
     serial_hex16(command);
-    serial_write("\n");
+    serial_write("\n"); */
 
     // Enable bus mastering (bit 2).
     command |= (1 << 2);
@@ -108,9 +108,9 @@ static void pci_enable_bus_mastering(void)
 
     io_out32(PCI_CONFIG_ADDRESS, address);
 
-    serial_write("PCI command after enabling bus mastering: ");
+    /*    serial_write("PCI command after enabling bus mastering: ");
     serial_hex16(io_in16(PCI_CONFIG_DATA));
-    serial_write("\n");    
+    serial_write("\n");     */
 }
 
 int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
