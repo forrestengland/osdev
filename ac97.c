@@ -96,10 +96,6 @@ static void pci_enable_bus_mastering(void)
 
     command = io_in16(PCI_CONFIG_DATA);
 
-    /*    serial_write("PCI command before enabling bus mastering: ");
-    serial_hex16(command);
-    serial_write("\n"); */
-
     // Enable bus mastering (bit 2).
     command |= (1 << 2);
 
@@ -107,10 +103,6 @@ static void pci_enable_bus_mastering(void)
     io_out16(PCI_CONFIG_DATA, command);
 
     io_out32(PCI_CONFIG_ADDRESS, address);
-
-    /*    serial_write("PCI command after enabling bus mastering: ");
-    serial_hex16(io_in16(PCI_CONFIG_DATA));
-    serial_write("\n");     */
 }
 
 int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
@@ -120,15 +112,15 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
   busmaster = busmaster_base;
 
   // start audio
-    uint8_t cr_before = io_in8(busmaster + 0x1B);
+  /*    uint8_t cr_before = io_in8(busmaster + 0x1B); */
 
-    serial_write("PCM CR before reset: ");
+    /*    serial_write("PCM CR before reset: ");
     serial_hex8(cr_before);
-    serial_write("\n");
+    serial_write("\n"); */
 
     io_out8(busmaster + 0x1B, 0x02);
 
-    uint8_t cr_after = io_in8(busmaster + 0x1B);
+    /*    uint8_t cr_after = io_in8(busmaster + 0x1B);
 
     serial_write("PCM CR after reset: ");
     serial_hex8(cr_after);
@@ -138,7 +130,7 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
 
     serial_write("PCM status: ");
     serial_hex16(sr);
-    serial_write("\n");    
+    serial_write("\n");    */
 
     pci_enable_bus_mastering();    
 
