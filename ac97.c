@@ -160,27 +160,23 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
 
   uint16_t original = io_in16(mixer + 0x02);
 
-  /*  serial_write("Master original: ");
-    serial_hex16(original);
-    serial_write("\n"); */
+  io_out16(mixer + 0x02, 0x1F1F);
 
-    io_out16(mixer + 0x02, 0x1F1F);
+  for (volatile unsigned int i = 0; i < 100000; i++)
+    __asm__ volatile ("pause");
 
-    for (volatile unsigned int i = 0; i < 100000; i++)
-      __asm__ volatile ("pause");
-
-    serial_write("Master test 1F1F: ");
+  /*    serial_write("Master test 1F1F: ");
     serial_hex16(io_in16(mixer + 0x02));
-    serial_write("\n");
+    serial_write("\n"); */
 
     io_out16(mixer + 0x02, 0x0000);
 
     for (volatile unsigned int i = 0; i < 100000; i++)
       __asm__ volatile ("pause");
 
-    serial_write("Master test 0000: ");
+    /*    serial_write("Master test 0000: ");
     serial_hex16(io_in16(mixer + 0x02));
-    serial_write("\n");    
+    serial_write("\n");     */
 
     // Power up the codec analog sections.
     io_out16(mixer + 0x26, 0x0000);
