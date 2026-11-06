@@ -141,22 +141,24 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
   serial_write(ready ? "YES\n" : "NO\n");
 
   // Headphone register test
-    io_out16(mixer + 0x04, 0x1F1F);
-    serial_write("Headphone test 1F1F: ");
-	  serial_hex16(io_in16(mixer + 0x04));
+  io_out16(mixer + 0x04, 0x1F1F);
 
-    io_out16(mixer + 0x04, 0x1010);
-    serial_write(", Headphone test 0000: ");
-    serial_hex16(io_in16(mixer + 0x04));
+  io_out16(mixer + 0x04, 0x1010);
+  
+  // PCM register test
+  io_out16(mixer + 0x18, 0x1F1F);
 
-    // PCM register test
-    io_out16(mixer + 0x18, 0x1F1F);
-    serial_write(", PCM test 1F1F:");
-    serial_hex16(io_in16(mixer + 0x18));
+  /* -- */
+  serial_write(", PCM test 1F1F:");
+  serial_hex16(io_in16(mixer + 0x18));
+  /* -- */
 
-    io_out16(mixer + 0x18, 0x1010);
-    serial_write(", PCM test 0000: ");
-    serial_hex16(io_in16(mixer + 0x18));
+  io_out16(mixer + 0x18, 0x1010);
+
+  /* --- */
+  serial_write(", PCM test 0000: ");
+  serial_hex16(io_in16(mixer + 0x18));
+  /* --- */
 
     uint16_t original = io_in16(mixer + 0x02);
 
