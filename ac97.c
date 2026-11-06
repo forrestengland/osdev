@@ -8,9 +8,6 @@ static uint16_t busmaster;
 
 #define AC97_SAMPLE_RATE  48000
 
-//#define AC97_TONE_HZ      440
-//#define AC97_TONE_FRAMES  24000
-
 #define AC97_BDL_IOC      0x8000
 
 #define AC97_BUFFER_COUNT  32
@@ -70,43 +67,6 @@ void io_out32(uint16_t port, uint32_t value) {
                       : : "a"(value), "Nd"(port));
 }
 
-static uint32_t pci_read_config32(uint8_t bus,
-                                  uint8_t device,
-                                  uint8_t function,
-                                  uint8_t offset)
-{
-    uint32_t address =
-        0x80000000 |
-        ((uint32_t)bus << 16) |
-        ((uint32_t)device << 11) |
-        ((uint32_t)function << 8) |
-        (offset & 0xFC);
-
-    io_out32(0xCF8, address);
-    return io_in32(0xCFC);
-}
-
-static void ac97_test_mixer_register(uint8_t reg, uint16_t value)
-{
-    uint16_t before = io_in16(mixer + reg);
-
-    io_out16(mixer + reg, value);
-
-    for (volatile int i = 0; i < 10000; i++) {
-        __asm__ volatile("nop");
-    }
-
-    uint16_t after = io_in16(mixer + reg);
-
-    serial_write("Mixer reg ");
-    serial_hex8(reg);
-    serial_write(" before: ");
-    serial_hex16(before);
-    serial_write(" after: ");
-    serial_hex16(after);
-    serial_write("\n");
-}
-
 static void pci_enable_bus_mastering(void)
 {
     uint32_t address = 0x80000000 |
@@ -124,10 +84,6 @@ static void pci_enable_bus_mastering(void)
     io_out16(0xCFC, command);
 
     io_out32(0xCF8, address);
-
-    //    serial_write("PCI command after enabling bus mastering: ");
-    //    serial_hex16(io_in16(0xCFC));
-    //    serial_write("\n");
 
     address =
       (1U << 31) |  // Enable
@@ -305,12 +261,6 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
     serial_hex16(io_in16(mixer + 0x18));
     serial_write("\n");
 
-    // Maximum master volume, unmuted.
-    //    io_out16(mixer + 0x02, 0x0000);
-
-    // Maximum PCM volume, unmuted.
-    //    io_out16(mixer + 0x18, 0x0000);
-
     for (volatile unsigned int i = 0; i < 10000; i++) {
       __asm__ volatile ("pause");
     }
@@ -322,12 +272,6 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
     serial_write("PCM volume readback: ");
     serial_hex16(io_in16(mixer + 0x18));
     serial_write("\n");    
-
-    // Master volume: maximum, unmuted.
-    //    io_out16(mixer + 0x02, 0x0000);
-
-    // PCM output volume: maximum, unmuted.
-    //    io_out16(mixer + 0x18, 0x0000);
 
     // Read back both registers.
     serial_write("Master volume after write: ");
@@ -342,38 +286,12 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
     serial_hex32(io_in32(busmaster + AC97_GLOB_CNT));
     serial_write("\n");
 
-    /* Allow codec initialization time. */
-    //    for (volatile unsigned int i = 0; i < 100000000; ++i)
-    //      __asm__ volatile ("pause");
-
     serial_write("AC97 global status after reset: ");
     serial_hex32(io_in32(busmaster + AC97_GLOB_STA));
     serial_write("\n");    
 
-    /* Wait for the primary codec ready bit (bit 8). */
-    //    unsigned int timeout = 1000000;
-
-    //    while (!(io_in32(busmaster + AC97_GLOB_STA) & 0x100) &&
-    //	   --timeout) {
-    //      __asm__ volatile ("pause");
-    //    }
-
-    //    if (timeout == 0) {
-    //      console_write("AC97: codec not ready\n");
-    //      return -1;
-    //    }
-
-    /* Reset mixer registers to their defaults. */
-    //    io_out16(mixer + 0x00, 0x0000);
-
-    /* Set master and PCM output volume; clear mute on both. */
-    //    io_out16(mixer + 0x02, 0x1010);
-    //    io_out16(mixer + 0x18, 0x1010);    
-
-    /*
-     * Reset the PCM-out bus-master engine.
-     * The reset bit is self-clearing.
-     */
+    // Reset the PCM-out bus-master engine.
+    // The reset bit is self-clearing.
     io_out8(busmaster + AC97_PO_CR, AC97_CR_RESET);
 
     unsigned int timeout = 1000000;
@@ -417,9 +335,6 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
     serial_hex16(pcm);
     serial_write("\n");    
 
-    /* Set moderate stereo volume and clear mute. */
-    //    io_out16(mixer + 0x02, 0x1010);
-
     console_write("AC97: mixer volume = ");
     console_hex16(io_in16(mixer + 0x02));
     console_write("\n");
@@ -447,18 +362,6 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
     console_write("AC97 master volume: ");
     console_hex16(io_in16(mixer + 0x02));
     console_write("\n");
-
-    // set master and pcm volume to max
-    /*    io_out16(mixer + 0x02, 0x0000);
-    io_out16(mixer + 0x18, 0x0000);
-    
-    serial_write("master volume: ");    
-    serial_hex16(io_in16(mixer + 0x02));
-    serial_write("\n");    
-
-    serial_write("pcm volume: ");    
-    serial_hex16(io_in16(mixer + 0x18));
-    serial_write("\n"); */
 
     return 0;
 }
@@ -537,10 +440,8 @@ void ac97_service(void)
 
     uint8_t civ = io_in8(busmaster + AC97_PO_CIV);
 
-    /*
-     * Every descriptor between next_buffer_to_fill and CIV
-     * has completed and is safe to refill.
-     */
+    // Every descriptor between next_buffer_to_fill and CIV
+    // has completed and is safe to refill.
     while (next_buffer_to_fill != civ) {
 
         uint8_t index = next_buffer_to_fill;
@@ -550,7 +451,6 @@ void ac97_service(void)
 
         // Make this descriptor valid again.
         // Advancing LVI allows DMA to continue around the ring.
-	//        io_out8(busmaster + AC97_PO_LVI, index);
         io_out8(busmaster + AC97_PO_LVI, (io_in8(busmaster + AC97_PO_LVI) + 1) % AC97_BUFFER_COUNT);	
 
         next_buffer_to_fill = (next_buffer_to_fill + 1) % AC97_BUFFER_COUNT;
