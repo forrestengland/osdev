@@ -105,6 +105,11 @@ static void pci_enable_bus_mastering(void)
     io_out32(PCI_CONFIG_ADDRESS, address);
 }
 
+void ac97_pause(unsigned int duration) {
+  for (volatile unsigned int i = 0; i < duration; ++i)
+    __asm__ volatile ("pause");
+}
+
 int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
 {
 
@@ -119,8 +124,7 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
   // Assert AC97 cold reset.
   io_out32(busmaster + AC97_GLOB_CNT, 0x00);
 
-  for (volatile unsigned int i = 0; i < 1000000; ++i)
-    __asm__ volatile ("pause");
+  ac97_pause(1000000);
 
   // Release AC97 cold reset.
   io_out32(busmaster + AC97_GLOB_CNT, 0x02);
@@ -141,38 +145,41 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
   serial_write(ready ? "YES\n" : "NO\n");
 
   // Headphone register test
-  io_out16(mixer + 0x04, 0x1F1F);
+  //  io_out16(mixer + 0x04, 0x1F1F);
 
   io_out16(mixer + 0x04, 0x1010);
+  ac97_pause(1000000);  
   
   // PCM register test
-  io_out16(mixer + 0x18, 0x1F1F);
+  //  io_out16(mixer + 0x18, 0x1F1F);
 
   // necessary delay
-  for (volatile unsigned int i = 0; i < 100000; i++)
-    __asm__ volatile ("pause");
+  //  for (volatile unsigned int i = 0; i < 100000; i++)
+  //    __asm__ volatile ("pause");
 
   io_out16(mixer + 0x18, 0x1010);
-
+  ac97_pause(1000000);  
   // necessary delay -->
-  for (volatile unsigned int i = 0; i < 100000; i++)
-    __asm__ volatile ("pause");
+  //  for (volatile unsigned int i = 0; i < 100000; i++)
+  //    __asm__ volatile ("pause");
+  
 
-  uint16_t original = io_in16(mixer + 0x02);
+  //  uint16_t original = io_in16(mixer + 0x02);
 
-  io_out16(mixer + 0x02, 0x1F1F);
-
-  for (volatile unsigned int i = 0; i < 100000; i++)
-    __asm__ volatile ("pause");
+  //io_out16(mixer + 0x02, 0x1F1F);
+  io_out16(mixer + 0x02, 0x1010);
+  ac97_pause(1000000);  
+  //  for (volatile unsigned int i = 0; i < 100000; i++)
+  //    __asm__ volatile ("pause");
 
   /*    serial_write("Master test 1F1F: ");
     serial_hex16(io_in16(mixer + 0x02));
     serial_write("\n"); */
 
-    io_out16(mixer + 0x02, 0x0000);
+  //    io_out16(mixer + 0x02, 0x0000);
 
-    for (volatile unsigned int i = 0; i < 100000; i++)
-      __asm__ volatile ("pause");
+  //    for (volatile unsigned int i = 0; i < 100000; i++)
+  //      __asm__ volatile ("pause");
 
     /*    serial_write("Master test 0000: ");
     serial_hex16(io_in16(mixer + 0x02));
@@ -180,11 +187,12 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
 
     // Power up the codec analog sections.
     io_out16(mixer + 0x26, 0x0000);
-
+    ac97_pause(1000000);
+    
     // Give the codec time to stabilize.
-    for (volatile unsigned int i = 0; i < 1000000; i++) {
-      __asm__ volatile ("pause");
-    }
+    //    for (volatile unsigned int i = 0; i < 1000000; i++) {
+    //      __asm__ volatile ("pause");
+    //    } -->
 
     serial_write("Power management after wake: ");
     serial_hex16(io_in16(mixer + 0x26));
