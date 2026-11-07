@@ -49,19 +49,11 @@ void kernel_main(void) {
     return;
   }
 
-  int counter = 0;
   for (;;) {
 
     ac97_service();
 
     midi_serial_test();
-
-    counter++;
     
-    if (counter >= 1000) {
-
-      counter = 0;
-
-    }
   }
 }

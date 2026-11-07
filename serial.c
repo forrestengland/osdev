@@ -50,6 +50,7 @@ void serial_init(void)
 
 void serial_putc(char c)
 {
+
 #ifdef DISABLE_SERIAL_OUTPUT
     return;
 #endif

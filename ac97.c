@@ -5,6 +5,7 @@
 
 static uint16_t mixer;
 static uint16_t busmaster;
+static int disable_out_delay = 0;
 
 #define AC97_SAMPLE_RATE  48000
 
@@ -31,6 +32,11 @@ static int16_t audio_buffers[AC97_BUFFER_COUNT][AC97_BUFFER_SAMPLES]
 static uint8_t next_buffer_to_fill;
 static int audio_running;
 
+void ac97_pause(unsigned int duration) {
+  for (volatile unsigned int i = 0; i < duration; ++i)
+    __asm__ volatile ("pause");
+}
+
 uint8_t io_in8(uint16_t port) {
     uint8_t value;
     __asm__ volatile ("inb %1, %0"
@@ -55,16 +61,19 @@ uint32_t io_in32(uint16_t port) {
 void io_out8(uint16_t port, uint8_t value) {
     __asm__ volatile ("outb %0, %1"
                       : : "a"(value), "Nd"(port));
+    if (!disable_out_delay) ac97_pause(2000000);      
 }
 
 void io_out16(uint16_t port, uint16_t value) {
     __asm__ volatile ("outw %0, %1"
                       : : "a"(value), "Nd"(port));
+    if (!disable_out_delay) ac97_pause(2000000);          
 }
 
 void io_out32(uint16_t port, uint32_t value) {
     __asm__ volatile ("outl %0, %1"
                       : : "a"(value), "Nd"(port));
+    if (!disable_out_delay) ac97_pause(2000000);              
 }
 
 static void pci_enable_bus_mastering(void)
@@ -105,11 +114,6 @@ static void pci_enable_bus_mastering(void)
     io_out32(PCI_CONFIG_ADDRESS, address);
 }
 
-void ac97_pause(unsigned int duration) {
-  for (volatile unsigned int i = 0; i < duration; ++i)
-    __asm__ volatile ("pause");
-}
-
 int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
 {
 
@@ -144,296 +148,118 @@ int ac97_init(uint16_t mixer_base, uint16_t busmaster_base)
   serial_write("Codec ready: ");
   serial_write(ready ? "YES\n" : "NO\n");
 
-  // Headphone register test
-  //  io_out16(mixer + 0x04, 0x1F1F);
-
+  // Headphone volume set
   io_out16(mixer + 0x04, 0x1010);
   ac97_pause(1000000);  
   
-  // PCM register test
-  //  io_out16(mixer + 0x18, 0x1F1F);
-
-  // necessary delay
-  //  for (volatile unsigned int i = 0; i < 100000; i++)
-  //    __asm__ volatile ("pause");
-
+  // PCM volume set
   io_out16(mixer + 0x18, 0x1010);
   ac97_pause(1000000);  
-  // necessary delay -->
-  //  for (volatile unsigned int i = 0; i < 100000; i++)
-  //    __asm__ volatile ("pause");
-  
 
-  //  uint16_t original = io_in16(mixer + 0x02);
-
-  //io_out16(mixer + 0x02, 0x1F1F);
+  // master volume set
   io_out16(mixer + 0x02, 0x1010);
   ac97_pause(1000000);  
-  //  for (volatile unsigned int i = 0; i < 100000; i++)
-  //    __asm__ volatile ("pause");
 
-  /*    serial_write("Master test 1F1F: ");
-    serial_hex16(io_in16(mixer + 0x02));
-    serial_write("\n"); */
+  // Reset the PCM-out bus-master engine.
+  // The reset bit is self-clearing.
+  io_out8(busmaster + AC97_PO_CR, AC97_CR_RESET);
 
-  //    io_out16(mixer + 0x02, 0x0000);
+  unsigned int timeout = 1000000;
+  while ((io_in8(busmaster + AC97_PO_CR) & AC97_CR_RESET) &&
+	 --timeout) {
+    __asm__ volatile ("pause");
+  }
 
-  //    for (volatile unsigned int i = 0; i < 100000; i++)
-  //      __asm__ volatile ("pause");
+  if (timeout == 0) {
+    console_write("AC97: PCM-out reset timed out\n");
+    return -1;
+  }
 
-    /*    serial_write("Master test 0000: ");
-    serial_hex16(io_in16(mixer + 0x02));
-    serial_write("\n");     */
-
-    // Power up the codec analog sections.
-    io_out16(mixer + 0x26, 0x0000);
-    ac97_pause(1000000);
-    
-    // Give the codec time to stabilize.
-    //    for (volatile unsigned int i = 0; i < 1000000; i++) {
-    //      __asm__ volatile ("pause");
-    //    } -->
-
-    serial_write("Power management after wake: ");
-    serial_hex16(io_in16(mixer + 0x26));
-    serial_write("\n");
-
-    // Unmute and set maximum output volume.
-    io_out16(mixer + 0x02, 0x0000);  // Master
-    io_out16(mixer + 0x04, 0x0000);  // Headphone
-    io_out16(mixer + 0x18, 0x0000);  // PCM
-
-    for (volatile unsigned int i = 0; i < 100000; i++) {
-      __asm__ volatile ("pause");
-    }
-
-    serial_write("Master: ");
-    serial_hex16(io_in16(mixer + 0x02));
-    serial_write("\n");
-
-    serial_write("Headphone: ");
-    serial_hex16(io_in16(mixer + 0x04));
-    serial_write("\n");
-
-    serial_write("PCM: ");
-    serial_hex16(io_in16(mixer + 0x18));
-    serial_write("\n"); 
-
-    serial_write("Codec reset register: ");
-    serial_hex16(io_in16(mixer + 0x00));
-    serial_write("\n");
-
-    serial_write("Codec vendor ID 1: ");
-    serial_hex16(io_in16(mixer + 0x7C));
-    serial_write("\n");
-
-    serial_write("Codec vendor ID 2: ");
-    serial_hex16(io_in16(mixer + 0x7E));
-    serial_write("\n");
-
-    serial_write("Codec master capabilities: ");
-    serial_hex16(io_in16(mixer + 0x02));
-    serial_write("\n");
-
-    serial_write("Codec PCM volume: ");
-    serial_hex16(io_in16(mixer + 0x18));
-    serial_write("\n");
-
-    for (volatile unsigned int i = 0; i < 10000; i++) {
-      __asm__ volatile ("pause");
-    }
-
-    serial_write("Master volume readback: ");
-    serial_hex16(io_in16(mixer + 0x02));
-    serial_write("\n");
-
-    serial_write("PCM volume readback: ");
-    serial_hex16(io_in16(mixer + 0x18));
-    serial_write("\n");    
-
-    // Read back both registers.
-    serial_write("Master volume after write: ");
-    serial_hex16(io_in16(mixer + 0x02));
-    serial_write("\n");
-
-    serial_write("PCM volume after write: ");
-    serial_hex16(io_in16(mixer + 0x18));
-    serial_write("\n");    
-
-    serial_write("AC97 global control after reset: ");
-    serial_hex32(io_in32(busmaster + AC97_GLOB_CNT));
-    serial_write("\n");
-
-    serial_write("AC97 global status after reset: ");
-    serial_hex32(io_in32(busmaster + AC97_GLOB_STA));
-    serial_write("\n");    
-
-    // Reset the PCM-out bus-master engine.
-    // The reset bit is self-clearing.
-    io_out8(busmaster + AC97_PO_CR, AC97_CR_RESET);
-
-    unsigned int timeout = 1000000;
-    while ((io_in8(busmaster + AC97_PO_CR) & AC97_CR_RESET) &&
-           --timeout) {
-        __asm__ volatile ("pause");
-    }
-
-    if (timeout == 0) {
-        console_write("AC97: PCM-out reset timed out\n");
-        return -1;
-    }
-
-    serial_write("Codec power management: ");
-    serial_hex16(io_in16(mixer + 0x26));
-    serial_write("\n");
-
-    // Configure AD1981B output levels.
-    io_out16(mixer + 0x02, 0x0000);  // Master volume
-    io_out16(mixer + 0x04, 0x0000);  // Headphone volume
-    io_out16(mixer + 0x18, 0x0000);  // PCM volume
-
-    // Allow codec time to process writes.
-    for (volatile unsigned int i = 0; i < 100000; i++) {
-      __asm__ volatile ("pause");
-    }
-
-    uint16_t master = io_in16(mixer + 0x02);
-    uint16_t headphone = io_in16(mixer + 0x04);
-    uint16_t pcm = io_in16(mixer + 0x18);
-
-    serial_write("Final master volume: ");
-    serial_hex16(master);
-    serial_write("\n");
-
-    serial_write("Final headphone volume: ");
-    serial_hex16(headphone);
-    serial_write("\n");
-
-    serial_write("Final PCM volume: ");
-    serial_hex16(pcm);
-    serial_write("\n");    
-
-    console_write("AC97: mixer volume = ");
-    console_hex16(io_in16(mixer + 0x02));
-    console_write("\n");
-
-    console_write("AC97: global status = ");
-    console_hex32(io_in32(busmaster + AC97_GLOB_STA));
-    console_write("\n");
-
-    console_write("AC97: PCM-out status = ");
-    console_hex16(io_in16(busmaster + AC97_PO_SR));
-    console_write("\n");
-
-    console_write("AC97 global control: ");
-    console_hex32(io_in32(busmaster + AC97_GLOB_CNT));
-    console_write("\n");
-
-    console_write("AC97 global status: ");
-    console_hex32(io_in32(busmaster + AC97_GLOB_STA));
-    console_write("\n");
-
-    console_write("AC97 PCM volume: ");
-    console_hex16(io_in16(mixer + 0x18));
-    console_write("\n");
-
-    console_write("AC97 master volume: ");
-    console_hex16(io_in16(mixer + 0x02));
-    console_write("\n");
-
-    return 0;
+  return 0;
 }
 
 int ac97_start(void)
 {
-    // Generate initial contents for every buffer.
-    for (int i = 0; i < AC97_BUFFER_COUNT; i++) {
+  // Generate initial contents for every buffer.
+  for (int i = 0; i < AC97_BUFFER_COUNT; i++) {
 
-      generate_audio(audio_buffers[i], AC97_BUFFER_FRAMES);
+    generate_audio(audio_buffers[i], AC97_BUFFER_FRAMES);
 
-        bdl[i].address =
-            (uint32_t)(uintptr_t)audio_buffers[i];
+    bdl[i].address =
+      (uint32_t)(uintptr_t)audio_buffers[i];
 
-        bdl[i].sample_count = AC97_BUFFER_SAMPLES;
-        bdl[i].control = AC97_BDL_IOC;
-    }
+    bdl[i].sample_count = AC97_BUFFER_SAMPLES;
+    bdl[i].control = AC97_BDL_IOC;
+  }
 
-    // Stop PCM-out before programming DMA.
-    io_out8(busmaster + AC97_PO_CR, 0);
+  // Stop PCM-out before programming DMA.
+  io_out8(busmaster + AC97_PO_CR, 0);
 
-    // Clear pending status flags.
-    io_out16(busmaster + AC97_PO_SR, 0x001C);
+  // Clear pending status flags.
+  io_out16(busmaster + AC97_PO_SR, 0x001C);
 
-    // Reset software buffer tracking.
-    next_buffer_to_fill = 0;
-    audio_running = 0;
+  // Reset software buffer tracking.
+  next_buffer_to_fill = 0;
+  audio_running = 0;
 
-    // Program the descriptor list.
-    io_out32(busmaster + AC97_PO_BDBAR,
-             (uint32_t)(uintptr_t)&bdl[0]);
+  // Program the descriptor list.
+  io_out32(busmaster + AC97_PO_BDBAR,
+	   (uint32_t)(uintptr_t)&bdl[0]);
 
-    // All descriptors are initially valid.
-    io_out8(busmaster + AC97_PO_LVI,
-            AC97_BUFFER_COUNT - 1);
+  // All descriptors are initially valid.
+  io_out8(busmaster + AC97_PO_LVI,
+	  AC97_BUFFER_COUNT - 1);
 
-    io_out16(mixer + 0x02, 0x0000); // Master volume, unmuted
-    io_out16(mixer + 0x04, 0x0000); // Headphone volume, unmuted
-    io_out16(mixer + 0x18, 0x0000); // PCM volume, unmuted
+  // Start PCM-out.
+  io_out8(busmaster + AC97_PO_CR, AC97_CR_RUN);
 
-    serial_write("Master after final setup: ");
-    serial_hex16(io_in16(mixer + 0x02));
-    serial_write(", Headphone after final setup: ");
-    serial_hex16(io_in16(mixer + 0x04));
-    serial_write(", PCM after final setup: ");
-    serial_hex16(io_in16(mixer + 0x18));
+  audio_running = 1;
 
-    // Start PCM-out.
-    io_out8(busmaster + AC97_PO_CR, AC97_CR_RUN);
+  console_write("AC97: continuous playback started\n");
 
-    audio_running = 1;
-
-    console_write("AC97: continuous playback started\n");
-
-    return 0;
+  return 0;
 }
 
 void ac97_service(void)
 {
-    if (!audio_running)
-        return;
 
-    uint16_t status = io_in16(busmaster + AC97_PO_SR);
+  disable_out_delay = 1;
+  
+  if (!audio_running)
+    return;
 
-    // Check for FIFO error.
-    if (status & 0x0010) {
-        console_write("AC97: FIFO error\n");
-        audio_running = 0;
-        io_out8(busmaster + AC97_PO_CR, 0);
-        return;
-    }
+  uint16_t status = io_in16(busmaster + AC97_PO_SR);
 
-    // No buffer completion yet.
-    if (!(status & 0x0008))
-        return;
+  // Check for FIFO error.
+  if (status & 0x0010) {
+    console_write("AC97: FIFO error\n");
+    audio_running = 0;
+    io_out8(busmaster + AC97_PO_CR, 0);
+    return;
+  }
 
-    uint8_t civ = io_in8(busmaster + AC97_PO_CIV);
+  // No buffer completion yet.
+  if (!(status & 0x0008))
+    return;
 
-    // Every descriptor between next_buffer_to_fill and CIV
-    // has completed and is safe to refill.
-    while (next_buffer_to_fill != civ) {
+  uint8_t civ = io_in8(busmaster + AC97_PO_CIV);
 
-        uint8_t index = next_buffer_to_fill;
+  // Every descriptor between next_buffer_to_fill and CIV
+  // has completed and is safe to refill.
+  while (next_buffer_to_fill != civ) {
 
-        // Generate new audio in the completed buffer.
-	generate_audio(audio_buffers[index], AC97_BUFFER_FRAMES);	
+    uint8_t index = next_buffer_to_fill;
 
-        // Make this descriptor valid again.
-        // Advancing LVI allows DMA to continue around the ring.
-        io_out8(busmaster + AC97_PO_LVI, (io_in8(busmaster + AC97_PO_LVI) + 1) % AC97_BUFFER_COUNT);	
+    // Generate new audio in the completed buffer.
+    generate_audio(audio_buffers[index], AC97_BUFFER_FRAMES);	
 
-        next_buffer_to_fill = (next_buffer_to_fill + 1) % AC97_BUFFER_COUNT;
-    }
+    // Make this descriptor valid again.
+    // Advancing LVI allows DMA to continue around the ring.
+    io_out8(busmaster + AC97_PO_LVI, (io_in8(busmaster + AC97_PO_LVI) + 1) % AC97_BUFFER_COUNT);	
 
-    // Acknowledge buffer completion (write-one-to-clear).
-    io_out16(busmaster + AC97_PO_SR, 0x0008);
+    next_buffer_to_fill = (next_buffer_to_fill + 1) % AC97_BUFFER_COUNT;
+  }
+
+  // Acknowledge buffer completion (write-one-to-clear).
+  io_out16(busmaster + AC97_PO_SR, 0x0008);
 }
