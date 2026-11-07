@@ -1,6 +1,7 @@
 
 #include "pci.h"
 #include "console.h"
+#include "serial.h"
 
 #include <stdint.h>
 
@@ -107,6 +108,45 @@ static uint32_t pci_read_config(uint8_t bus,
     return inl(0xCFC);
 }
 
+static void uhci_dump_registers(uint16_t base)
+{
+    serial_write("UHCI I/O base: ");
+    serial_hex16(base);
+    serial_write("\n");
+
+    serial_write("USBCMD: ");
+    serial_hex16(inw(base + 0x00));
+    serial_write("\n");
+
+    serial_write("USBSTS: ");
+    serial_hex16(inw(base + 0x02));
+    serial_write("\n");
+
+    serial_write("USBINTR: ");
+    serial_hex16(inw(base + 0x04));
+    serial_write("\n");
+
+    serial_write("FRNUM: ");
+    serial_hex16(inw(base + 0x06));
+    serial_write("\n");
+
+    serial_write("FLBASEADD: ");
+    serial_hex32(inl(base + 0x08));
+    serial_write("\n");
+
+    serial_write("SOFMOD: ");
+    serial_hex8(inb(base + 0x0C));
+    serial_write("\n");
+
+    serial_write("PORTSC1: ");
+    serial_hex16(inw(base + 0x10));
+    serial_write("\n");
+
+    serial_write("PORTSC2: ");
+    serial_hex16(inw(base + 0x12));
+    serial_write("\n");
+}
+
 static void pci_print_device(
     uint8_t bus,
     uint8_t device,
@@ -132,63 +172,94 @@ static void pci_print_device(
     uint8_t subclass = (class_info >> 16) & 0xFF;
     uint8_t class_code = (class_info >> 24) & 0xFF;
 
-    console_write("PCI ");
-    console_hex8(bus);
-    console_putc(':');
-    console_hex8(device);
-    console_putc('.');
-    console_hex8(function);
+    serial_write("PCI ");
+    serial_hex8(bus);
+    serial_putc(':');
+    serial_hex8(device);
+    serial_putc('.');
+    serial_hex8(function);
 
-    console_write("  Vendor=");
-    console_hex16(vendor);
+    serial_write("  Vendor=");
+    serial_hex16(vendor);
 
-    console_write(" Device=");
-    console_hex16(id);
+    serial_write(" Device=");
+    serial_hex16(id);
 
-    console_write(" Class=");
-    console_hex8(class_code);
-    console_putc(':');
-    console_hex8(subclass);
+    serial_write(" Class=");
+    serial_hex8(class_code);
+    serial_putc(':');
+    serial_hex8(subclass);
 
-    console_write(" IF=");
-    console_hex8(prog_if);
+    serial_write(" IF=");
+    serial_hex8(prog_if);
 
-    console_write(" Rev=");
-    console_hex8(revision);
+    serial_write(" Rev=");
+    serial_hex8(revision);
 
-    console_putc('\n');
+    serial_putc('\n');
+
+    /* usb controller */
+    if (class_code == 0x0C && subclass == 0x03) {
+      serial_write("USB controller found: ");
+
+      if (prog_if == 0x00)
+        serial_write("UHCI\n");
+      else if (prog_if == 0x10)
+        serial_write("OHCI\n");
+      else if (prog_if == 0x20)
+        serial_write("EHCI\n");
+      else
+        serial_write("Unknown interface\n");
+
+      serial_write("PCI command: ");
+      serial_hex16(pci_read16(bus, device, function, 0x04));
+
+      serial_write("\nBAR4: ");
+      serial_hex32(pci_read32(bus, device, function, 0x20));
+
+      serial_write("\nInterrupt: ");
+      serial_hex32(pci_read32(bus, device, function, 0x3C));
+
+      serial_write("\n");
+
+      uint16_t bar4 = pci_read16(bus, device, function, 0x20);
+      uint16_t uhci_base = bar4 & 0xFFF0;
+
+      uhci_dump_registers(uhci_base);      
+    }
+    /* end usb */
 
     if (vendor == 0x8086 && (id == 0x2415 || id == 0x2485)) {
-      console_write("found audio device\n");
-      console_write("Command/Status=");
-      console_hex32(pci_read_config(bus, device, function, 0x04));
-      console_write(" BAR0=");
-      console_hex32(pci_read_config(bus, device, function, 0x10));
-      console_write(" BAR1=");
-      console_hex32(pci_read_config(bus, device, function, 0x14));
-      console_write(" BAR2=");
-      console_hex32(pci_read_config(bus, device, function, 0x18));
-      console_write(" BAR3=");
-      console_hex32(pci_read_config(bus, device, function, 0x1C));
-      console_write(" BAR4=");
-      console_hex32(pci_read_config(bus, device, function, 0x20));
-      console_write(" Interrupt line/pin=");
-      console_hex32(pci_read_config(bus, device, function, 0x3C));
-      console_write("\n");
+      serial_write("found audio device\n");
+      serial_write("Command/Status=");
+      serial_hex32(pci_read_config(bus, device, function, 0x04));
+      serial_write(" BAR0=");
+      serial_hex32(pci_read_config(bus, device, function, 0x10));
+      serial_write(" BAR1=");
+      serial_hex32(pci_read_config(bus, device, function, 0x14));
+      serial_write(" BAR2=");
+      serial_hex32(pci_read_config(bus, device, function, 0x18));
+      serial_write(" BAR3=");
+      serial_hex32(pci_read_config(bus, device, function, 0x1C));
+      serial_write(" BAR4=");
+      serial_hex32(pci_read_config(bus, device, function, 0x20));
+      serial_write(" Interrupt line/pin=");
+      serial_hex32(pci_read_config(bus, device, function, 0x3C));
+      serial_write("\n");
 
       uint16_t nabm = 0xC400;
 
-      console_write("AC97 Global Control: ");
-      console_hex16(inw(nabm + 0x2C));
-      console_write("\n");
+      serial_write("AC97 Global Control: ");
+      serial_hex16(inw(nabm + 0x2C));
+      serial_write("\n");
 
-      console_write("AC97 Global Status: ");
-      console_hex16(inw(nabm + 0x30));
-      console_write("\n");
+      serial_write("AC97 Global Status: ");
+      serial_hex16(inw(nabm + 0x30));
+      serial_write("\n");
 
-      console_write("AC97 PCM Out Status: ");
-      console_hex8(inb(nabm + 0x16));
-      console_write("\n");
+      serial_write("AC97 PCM Out Status: ");
+      serial_hex8(inb(nabm + 0x16));
+      serial_write("\n");
 
       uint32_t bar0 = pci_read_config(bus, device, function, 0x10);
       uint32_t bar1 = pci_read_config(bus, device, function, 0x14);
@@ -198,67 +269,67 @@ static void pci_print_device(
       *mixer_base = (uint16_t)(bar0 & 0xFFFFFFFC);
       *busmaster_base = (uint16_t)(bar1 & 0xFFFFFFFC);
 
-      console_write("AC97 mixer base: ");
-      console_hex32(*mixer_base);
-      console_write("\nAC97 busmaster base: ");
-      console_hex32(*busmaster_base);
-      console_write("\n");
+      serial_write("AC97 mixer base: ");
+      serial_hex32(*mixer_base);
+      serial_write("\nAC97 busmaster base: ");
+      serial_hex32(*busmaster_base);
+      serial_write("\n");
 
-      console_write("Busmaster global control: ");
-      console_hex32(inl(*busmaster_base + 0x2C));
-      console_write("\nBusmaster global status: ");
-      console_hex32(inl(*busmaster_base + 0x30));
-      console_write("\n");
+      serial_write("Busmaster global control: ");
+      serial_hex32(inl(*busmaster_base + 0x2C));
+      serial_write("\nBusmaster global status: ");
+      serial_hex32(inl(*busmaster_base + 0x30));
+      serial_write("\n");
 
       uint16_t pcm_out = *busmaster_base + 0x10;
 
-      console_write("PCM Out BDBAR: ");
-      console_hex32(inl(pcm_out + 0x00));
-      console_write("\n");
+      serial_write("PCM Out BDBAR: ");
+      serial_hex32(inl(pcm_out + 0x00));
+      serial_write("\n");
 
-      console_write("PCM Out CIV: ");
-      console_hex32(inb(pcm_out + 0x04));
-      console_write("\n");
+      serial_write("PCM Out CIV: ");
+      serial_hex32(inb(pcm_out + 0x04));
+      serial_write("\n");
 
-      console_write("PCM Out LVI: ");
-      console_hex32(inb(pcm_out + 0x05));
-      console_write("\n");
+      serial_write("PCM Out LVI: ");
+      serial_hex32(inb(pcm_out + 0x05));
+      serial_write("\n");
 
-      console_write("PCM Out Status: ");
-      console_hex32(inw(pcm_out + 0x06));
-      console_write("\n");
+      serial_write("PCM Out Status: ");
+      serial_hex32(inw(pcm_out + 0x06));
+      serial_write("\n");
 
-      console_write("PCM Out PICB: ");
-      console_hex32(inw(pcm_out + 0x08));
-      console_write("\n");
+      serial_write("PCM Out PICB: ");
+      serial_hex32(inw(pcm_out + 0x08));
+      serial_write("\n");
 
-      console_write("PCM Out Control: ");
-      console_hex32(inb(pcm_out + 0x0B));
-      console_write("\n");
+      serial_write("PCM Out Control: ");
+      serial_hex32(inb(pcm_out + 0x0B));
+      serial_write("\n");
 
       //      mixer_base = 0xC000;
 
-      console_write("AC97 Mixer Reset: ");
-      console_hex16(inw(*mixer_base + 0x00));
-      console_write("\n");
+      serial_write("AC97 Mixer Reset: ");
+      serial_hex16(inw(*mixer_base + 0x00));
+      serial_write("\n");
 
-      console_write("AC97 Master Volume: ");
-      console_hex16(inw(*mixer_base + 0x02));
-      console_write("\n");
+      serial_write("AC97 Master Volume: ");
+      serial_hex16(inw(*mixer_base + 0x02));
+      serial_write("\n");
 
-      console_write("AC97 Extended Audio ID: ");
-      console_hex16(inw(*mixer_base + 0x28));
-      console_write("\n");
+      serial_write("AC97 Extended Audio ID: ");
+      serial_hex16(inw(*mixer_base + 0x28));
+      serial_write("\n");
 
-      console_write("AC97 Powerdown Control: ");
-      console_hex16(inw(*mixer_base + 0x26));
-      console_write("\n");
+      serial_write("AC97 Powerdown Control: ");
+      serial_hex16(inw(*mixer_base + 0x26));
+      serial_write("\n");
 
       outw(*mixer_base + 0x02, 0x1010);
 
-      console_write("AC97 Master Volume After Write: ");
-      console_hex16(inw(*mixer_base + 0x02));
-      console_write("\n");
+      serial_write("AC97 Master Volume After Write: ");
+      serial_hex16(inw(*mixer_base + 0x02));
+      serial_write("\n");
 
       //      uint32_t bar0 = pci_read_config(bus, device, function, 0x10);
       //      uint32_t bar1 = pci_read_config(bus, device, function, 0x14);

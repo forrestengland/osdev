@@ -5,9 +5,15 @@ qemu-system-i386 \
     -m 128M \
     -audiodev jack,id=audio0 \
     -device AC97,audiodev=audio0 \
+    -device ich9-usb-ehci1,id=ehci \
+    -device ich9-usb-uhci1,masterbus=ehci.0,firstport=0,multifunction=on \
+    -device ich9-usb-uhci2,masterbus=ehci.0,firstport=2 \
+    -device ich9-usb-uhci3,masterbus=ehci.0,firstport=4 \
+    -device usb-host,bus=ehci.0,port=1,vendorid=0xfc02,productid=0x0101 \
     -serial stdio \
     -cdrom myos.iso \
-    -boot d &
+    -monitor telnet:127.0.0.1:4444,server,nowait \
+    -boot d
 
 QEMU_PID=$!
 

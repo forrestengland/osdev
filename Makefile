@@ -18,7 +18,7 @@ kernel.o: kernel.c console.h pci.h
 console.o: console.c console.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
-pci.o: pci.c pci.h console.h
+pci.o: pci.c pci.h console.h serial.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 serial.o: serial.c serial.h
@@ -30,8 +30,11 @@ ac97.o: ac97.c ac97.h console.h serial.h audio.h
 audio.o: audio.c audio.h 
 	$(CC) $(CFLAGS) -c $< -o $@
 
-kernel.elf: boot.o kernel.o console.o pci.o ac97.o serial.o audio.o linker.ld
-	$(LD) -m elf_i386 -T linker.ld -nostdlib -o $@ boot.o kernel.o pci.o ac97.o serial.o console.o audio.o
+uhci.o: uhci.c uhci.h serial.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+kernel.elf: boot.o kernel.o console.o pci.o ac97.o serial.o audio.o uhci.o linker.ld
+	$(LD) -m elf_i386 -T linker.ld -nostdlib -o $@ boot.o kernel.o pci.o ac97.o serial.o console.o audio.o uhci.o
 	@grub-file --is-x86-multiboot $@
 
 myos.iso: kernel.elf iso/boot/grub/grub.cfg
@@ -42,7 +45,7 @@ myos.iso: kernel.elf iso/boot/grub/grub.cfg
 run: myos.iso
 	./run.sh
 clean:
-	rm -f boot.o kernel.o kernel.elf myos.iso ac97.iso
+	rm -f boot.o kernel.o console.o pci.o serial.o audio.o uhci.o kernel.elf myos.iso ac97.iso
 	rm -f iso/boot/kernel.elf
 
 .PHONY: all run clean
