@@ -1,6 +1,8 @@
 
 #include "serial.h"
 
+#define DISABLE_SERIAL_OUTPUT
+
 static inline void outb(uint16_t port, uint8_t value)
 {
     __asm__ volatile ("outb %0, %1" : : "a"(value), "Nd"(port));
@@ -19,8 +21,12 @@ void serial_init(void)
 {
     outb(COM1 + 1, 0x00); // Disable interrupts
     outb(COM1 + 3, 0x80); // Enable divisor latch
-    outb(COM1 + 0, 0x01); // Divisor low: 115200 baud
+
+    // set serial port speed
+    //    outb(COM1 + 0, 0x01); // Divisor low: 115200 baud
+    outb(COM1 + 0, 0x03); // Divisor low: 115200 baud    
     outb(COM1 + 1, 0x00); // Divisor high
+    
     outb(COM1 + 3, 0x03); // 8 bits, no parity, one stop bit
     outb(COM1 + 2, 0xC7); // Enable and clear FIFOs
     outb(COM1 + 4, 0x0B); // Enable IRQs, RTS, DTR
@@ -28,6 +34,10 @@ void serial_init(void)
 
 void serial_putc(char c)
 {
+#ifdef DISABLE_SERIAL_OUTPUT  
+  return;
+#endif
+  
     // Wait until the transmitter holding register is empty.
     while (!(inb(COM1 + 5) & 0x20))
         __asm__ volatile ("pause");
