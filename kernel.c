@@ -7,6 +7,17 @@
 #include <stddef.h>
 #include <stdint.h>
 
+static void midi_serial_test(void)
+{
+    uint8_t byte;
+
+    while (serial_try_read(&byte)) {
+        console_write("MIDI: ");
+        console_hex8(byte);
+        console_write("\n");
+    }
+}
+
 void kernel_main(void) {
 
   serial_init();
@@ -26,6 +37,7 @@ void kernel_main(void) {
   /* init usb for midi */
   uhci_init(0xC540);
   uhci_dump_ports();
+  
 
   if (ac97_init(mixer_base, busmaster_base) != 0) {
     console_write("AC97 initialization failed\n");
@@ -41,6 +53,8 @@ void kernel_main(void) {
   for (;;) {
 
     ac97_service();
+
+    midi_serial_test();
 
     counter++;
     

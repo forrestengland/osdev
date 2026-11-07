@@ -17,32 +17,47 @@ static inline uint8_t inb(uint16_t port)
 
 #define COM1 0x3F8
 
+#define UART_DATA       0
+#define UART_IER        1
+#define UART_FCR        2
+#define UART_LCR        3
+#define UART_MCR        4
+#define UART_LSR        5
+
+#define UART_LSR_DATA_READY  0x01
+
 void serial_init(void)
 {
-    outb(COM1 + 1, 0x00); // Disable interrupts
-    outb(COM1 + 3, 0x80); // Enable divisor latch
+    /* Disable UART interrupts. */
+    outb(COM1 + UART_IER, 0x00);
 
-    // set serial port speed
-    //    outb(COM1 + 0, 0x01); // Divisor low: 115200 baud
-    outb(COM1 + 0, 0x03); // Divisor low: 115200 baud    
-    outb(COM1 + 1, 0x00); // Divisor high
-    
-    outb(COM1 + 3, 0x03); // 8 bits, no parity, one stop bit
-    outb(COM1 + 2, 0xC7); // Enable and clear FIFOs
-    outb(COM1 + 4, 0x0B); // Enable IRQs, RTS, DTR
+    /* Enable divisor latch. */
+    outb(COM1 + UART_LCR, 0x80);
+
+    /* 38400 baud: 115200 / 3. */
+    outb(COM1 + UART_DATA, 0x03);
+    outb(COM1 + UART_IER, 0x00);
+
+    /* 8 data bits, no parity, 1 stop bit. */
+    outb(COM1 + UART_LCR, 0x03);
+
+    /* Enable FIFO, clear RX/TX FIFO, 14-byte threshold. */
+    outb(COM1 + UART_FCR, 0xC7);
+
+    /* DTR, RTS, OUT2. */
+    outb(COM1 + UART_MCR, 0x0B);
 }
 
 void serial_putc(char c)
 {
-#ifdef DISABLE_SERIAL_OUTPUT  
-  return;
+#ifdef DISABLE_SERIAL_OUTPUT
+    return;
 #endif
-  
-    // Wait until the transmitter holding register is empty.
-    while (!(inb(COM1 + 5) & 0x20))
+
+    while (!(inb(COM1 + UART_LSR) & 0x20))
         __asm__ volatile ("pause");
 
-    outb(COM1, (uint8_t)c);
+    outb(COM1 + UART_DATA, (uint8_t)c);
 }
 
 void serial_write(const char *s)
@@ -50,8 +65,25 @@ void serial_write(const char *s)
     while (*s) {
         if (*s == '\n')
             serial_putc('\r');
+
         serial_putc(*s++);
     }
+}
+
+/* Return nonzero when a byte is available. */
+int serial_rx_ready(void)
+{
+    return (inb(COM1 + UART_LSR) & UART_LSR_DATA_READY) != 0;
+}
+
+/* Read one byte without blocking. */
+int serial_try_read(uint8_t *value)
+{
+    if (!serial_rx_ready())
+        return 0;
+
+    *value = inb(COM1 + UART_DATA);
+    return 1;
 }
 
 static void serial_hex_digit(uint8_t digit)

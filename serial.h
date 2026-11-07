@@ -11,4 +11,7 @@ void serial_hex8(uint8_t value);
 void serial_hex16(uint16_t value);
 void serial_hex32(uint32_t value);
 
+int serial_rx_ready(void);
+int serial_try_read(uint8_t *value);
+
 #endif
